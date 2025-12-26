@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"time"
+	"runtime"
+	"strings"
 )
 
 // ANSI color codes
@@ -38,12 +39,27 @@ func (h *ColoredHandler) Enabled(_ context.Context, l slog.Level) bool {
 }
 
 func (h *ColoredHandler) Handle(_ context.Context, r slog.Record) error {
-	// Format: 2025/12/26 15:04:05 [LEVEL] message key=value...
+	// Format: 2025/12/26 15:04:05 main.go:190: [LEVEL] message key=value...
 	timeStr := r.Time.Format("2006/01/02 15:04:05")
 	levelStr := h.formatLevel(r.Level)
 
+	// Get source location from PC
+	source := ""
+	if r.PC != 0 {
+		fs := runtime.CallersFrames([]uintptr{r.PC})
+		f, _ := fs.Next()
+		if f.File != "" {
+			// Extract just the filename, not full path
+			file := f.File
+			if idx := strings.LastIndex(file, "/"); idx >= 0 {
+				file = file[idx+1:]
+			}
+			source = fmt.Sprintf("%s:%d: ", file, f.Line)
+		}
+	}
+
 	// Build message
-	msg := fmt.Sprintf("%s %s %s", timeStr, levelStr, r.Message)
+	msg := fmt.Sprintf("%s %s%s %s", timeStr, source, levelStr, r.Message)
 
 	// Add attributes
 	r.Attrs(func(a slog.Attr) bool {
@@ -116,6 +132,3 @@ func (h *ColoredHandler) WithGroup(name string) slog.Handler {
 
 // Ensure ColoredHandler implements slog.Handler
 var _ slog.Handler = (*ColoredHandler)(nil)
-
-// Unused import placeholder
-var _ = time.Now

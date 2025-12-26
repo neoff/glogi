@@ -19,6 +19,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 )
 
 var (
@@ -82,47 +83,57 @@ func ensureInit() {
 	}
 }
 
+// logWithCaller logs with the correct caller information
+// calldepth indicates how many stack frames to skip
+func logWithCaller(lvl slog.Level, msg string, args ...any) {
+	ensureInit()
+	if !logger.Enabled(context.Background(), lvl) {
+		return
+	}
+
+	// Get caller info (skip: runtime.Caller, logWithCaller, public func, actual caller)
+	var pcs [1]uintptr
+	runtime.Callers(3, pcs[:])
+
+	r := slog.NewRecord(time.Now(), lvl, msg, pcs[0])
+	r.Add(args...)
+	_ = logger.Handler().Handle(context.Background(), r)
+}
+
 // Trace logs at TRACE level (light gray)
 func Trace(msg string, args ...any) {
-	ensureInit()
-	logger.Log(context.Background(), LevelTrace, msg, args...)
+	logWithCaller(LevelTrace, msg, args...)
 }
 
 // Debug logs at DEBUG level (gray)
 func Debug(msg string, args ...any) {
-	ensureInit()
-	logger.Debug(msg, args...)
+	logWithCaller(LevelDebug, msg, args...)
 }
 
 // Info logs at INFO level (no color)
 func Info(msg string, args ...any) {
-	ensureInit()
-	logger.Info(msg, args...)
+	logWithCaller(LevelInfo, msg, args...)
 }
 
 // Warn logs at WARN level (yellow)
 func Warn(msg string, args ...any) {
-	ensureInit()
-	logger.Warn(msg, args...)
+	logWithCaller(LevelWarn, msg, args...)
 }
 
 // Error logs at ERROR level (red)
 func Error(msg string, args ...any) {
-	ensureInit()
-	logger.Error(msg, args...)
+	logWithCaller(LevelError, msg, args...)
 }
 
 // Fatal logs at FATAL level (red) and calls os.Exit(1)
 func Fatal(msg string, args ...any) {
-	ensureInit()
-	logger.Log(context.Background(), LevelFatal, msg, args...)
+	logWithCaller(LevelFatal, msg, args...)
 	os.Exit(1)
 }
 
-// Panic logs at PANIC level (red) and panics
+// PanicLog logs at PANIC level (red) and panics
 func PanicLog(msg string, args ...any) {
-	ensureInit()
-	logger.Log(context.Background(), LevelPanic, msg, args...)
+	logWithCaller(LevelPanic, msg, args...)
 	panic(msg)
 }
 
@@ -132,6 +143,12 @@ func Recover() {
 		ensureInit()
 		buf := make([]byte, 4096)
 		n := runtime.Stack(buf, false)
-		logger.Log(context.Background(), LevelPanic, fmt.Sprintf("recovered: %v", r), "stack", string(buf[:n]))
+
+		var pcs [1]uintptr
+		runtime.Callers(2, pcs[:])
+
+		rec := slog.NewRecord(time.Now(), LevelPanic, fmt.Sprintf("recovered: %v", r), pcs[0])
+		rec.Add("stack", string(buf[:n]))
+		_ = logger.Handler().Handle(context.Background(), rec)
 	}
 }
