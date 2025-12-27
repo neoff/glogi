@@ -16,7 +16,18 @@ const (
 	colorGray      = "\033[90m" // DEBUG
 	colorYellow    = "\033[33m" // WARN
 	colorRed       = "\033[31m" // ERROR, FATAL, PANIC
+	colorGreen     = "\033[32m" // Source location
 )
+
+// Default source width (can be changed via SetSourceWidth)
+var sourceWidth = 15
+
+// SetSourceWidth sets the fixed width for source location display
+func SetSourceWidth(width int) {
+	if width > 0 {
+		sourceWidth = width
+	}
+}
 
 // ColoredHandler implements slog.Handler with colored level output
 type ColoredHandler struct {
@@ -39,7 +50,7 @@ func (h *ColoredHandler) Enabled(_ context.Context, l slog.Level) bool {
 }
 
 func (h *ColoredHandler) Handle(_ context.Context, r slog.Record) error {
-	// Format: 2025/12/26 15:04:05 main.go:190: [LEVEL] message key=value...
+	// Format: [2025/12/26 15:04:05] LEVEL [main.go:42 ] message key=value...
 	timeStr := r.Time.Format("2006/01/02 15:04:05")
 	levelStr := h.formatLevel(r.Level)
 
@@ -54,12 +65,19 @@ func (h *ColoredHandler) Handle(_ context.Context, r slog.Record) error {
 			if idx := strings.LastIndex(file, "/"); idx >= 0 {
 				file = file[idx+1:]
 			}
-			source = fmt.Sprintf("%s:%d: ", file, f.Line)
+			loc := fmt.Sprintf("%s:%d", file, f.Line)
+			// Pad or truncate to fixed width
+			if len(loc) > sourceWidth {
+				loc = loc[:sourceWidth]
+			} else {
+				loc = fmt.Sprintf("%-*s", sourceWidth, loc)
+			}
+			source = fmt.Sprintf("%s[%s]%s", colorGreen, loc, colorReset)
 		}
 	}
 
-	// Build message
-	msg := fmt.Sprintf("%s %s%s %s", timeStr, source, levelStr, r.Message)
+	// Build message: [time] LEVEL [source] message
+	msg := fmt.Sprintf("[%s] %s %s %s", timeStr, levelStr, source, r.Message)
 
 	// Add attributes
 	r.Attrs(func(a slog.Attr) bool {
@@ -106,10 +124,13 @@ func (h *ColoredHandler) formatLevel(l slog.Level) string {
 		color = colorRed
 	}
 
+	// Fixed width: 5 characters
+	paddedName := fmt.Sprintf("%-5s", name)
+
 	if color == "" {
-		return fmt.Sprintf("[%s]", name)
+		return paddedName
 	}
-	return fmt.Sprintf("%s[%s]%s", color, name, colorReset)
+	return fmt.Sprintf("%s%s%s", color, paddedName, colorReset)
 }
 
 func (h *ColoredHandler) WithAttrs(attrs []slog.Attr) slog.Handler {

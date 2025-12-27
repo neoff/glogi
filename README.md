@@ -18,6 +18,9 @@ func main() {
     defer log.Recover() // Catch panics
     log.Init()          // LOG_LEVEL from env (default: INFO)
     
+    // Optional: set source location width (default: 15)
+    log.SetSourceWidth(12)
+    
     // Structured logging (new style)
     log.Trace("trace message", "key", "value")
     log.Debug("debug info", "user_id", 123)
@@ -58,13 +61,20 @@ LOG_LEVEL=INFO ./myapp
 
 ## Output Example
 
+Format: `[time] LEVEL [source] message key=value`
+
 ```
-2025/12/26 16:00:00 main.go:16: [TRACE] trace message key=value
-2025/12/26 16:00:00 main.go:17: [DEBUG] debug info user_id=123
-2025/12/26 16:00:00 main.go:18: [INFO] server started port=8080
-2025/12/26 16:00:00 main.go:19: [WARN] slow query duration=500ms
-2025/12/26 16:00:00 main.go:20: [ERROR] connection failed err=timeout
+[2025/12/26 16:00:00] TRACE [main.go:16     ] trace message key=value
+[2025/12/26 16:00:00] DEBUG [main.go:17     ] debug info user_id=123
+[2025/12/26 16:00:00] INFO  [main.go:18     ] server started port=8080
+[2025/12/26 16:00:00] WARN  [main.go:19     ] slow query duration=500ms
+[2025/12/26 16:00:00] ERROR [main.go:20     ] connection failed err=timeout
 ```
+
+- **Time**: in brackets
+- **Level**: fixed 5-char width, colored (TRACE=light gray, DEBUG=gray, WARN=yellow, ERROR/FATAL/PANIC=red)
+- **Source**: in brackets, green color, fixed width (default 15, configurable via `SetSourceWidth`)
+- **Message**: plain text with key=value pairs
 
 ## License
 
