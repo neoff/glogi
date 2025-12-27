@@ -5,22 +5,114 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"os"
 	"runtime"
+	"strconv"
 	"strings"
 )
 
-// ANSI color codes
+// Default ANSI color codes
 const (
-	colorReset     = "\033[0m"
-	colorLightGray = "\033[37m" // TRACE - very light
-	colorGray      = "\033[90m" // DEBUG
-	colorYellow    = "\033[33m" // WARN
-	colorRed       = "\033[31m" // ERROR, FATAL, PANIC
-	colorGreen     = "\033[32m" // Source location
+	defaultColorReset     = "\033[0m"
+	defaultColorLightGray = "\033[37m" // TRACE
+	defaultColorGray      = "\033[90m" // DEBUG
+	defaultColorYellow    = "\033[33m" // WARN
+	defaultColorRed       = "\033[31m" // ERROR, FATAL, PANIC
+	defaultColorGreen     = "\033[32m" // Source location
 )
 
-// Default source width (can be changed via SetSourceWidth)
-var sourceWidth = 15
+// Configurable settings (can be overridden via env or SetXxx functions)
+var (
+	sourceWidth    = 20 // Default source width, configurable via LOG_SOURCE_WIDTH
+	colorReset     = defaultColorReset
+	colorTrace     = defaultColorLightGray
+	colorDebug     = defaultColorGray
+	colorInfo      = "" // No color for INFO
+	colorWarn      = defaultColorYellow
+	colorError     = defaultColorRed
+	colorSource    = defaultColorGreen
+	colorsDisabled = false
+	configLoaded   = false
+)
+
+// initConfig reads configuration from environment variables
+func initConfig() {
+	if configLoaded {
+		return
+	}
+	configLoaded = true
+
+	// Source width
+	if w := os.Getenv("LOG_SOURCE_WIDTH"); w != "" {
+		if width, err := strconv.Atoi(w); err == nil && width > 0 {
+			sourceWidth = width
+		}
+	}
+
+	// Disable colors
+	if os.Getenv("LOG_NO_COLOR") == "1" || os.Getenv("LOG_NO_COLOR") == "true" {
+		colorsDisabled = true
+	}
+
+	// Custom colors (ANSI codes like "32" for green, or named colors)
+	if c := os.Getenv("LOG_COLOR_TRACE"); c != "" {
+		colorTrace = parseColor(c)
+	}
+	if c := os.Getenv("LOG_COLOR_DEBUG"); c != "" {
+		colorDebug = parseColor(c)
+	}
+	if c := os.Getenv("LOG_COLOR_INFO"); c != "" {
+		colorInfo = parseColor(c)
+	}
+	if c := os.Getenv("LOG_COLOR_WARN"); c != "" {
+		colorWarn = parseColor(c)
+	}
+	if c := os.Getenv("LOG_COLOR_ERROR"); c != "" {
+		colorError = parseColor(c)
+	}
+	if c := os.Getenv("LOG_COLOR_SOURCE"); c != "" {
+		colorSource = parseColor(c)
+	}
+}
+
+// parseColor converts color config to ANSI code
+// Accepts: "32" (just code) or "\033[32m" (full ANSI) or "green" (named)
+func parseColor(c string) string {
+	c = strings.TrimSpace(c)
+	if c == "" {
+		return ""
+	}
+	// Named colors
+	switch strings.ToLower(c) {
+	case "red":
+		return "\033[31m"
+	case "green":
+		return "\033[32m"
+	case "yellow":
+		return "\033[33m"
+	case "blue":
+		return "\033[34m"
+	case "magenta":
+		return "\033[35m"
+	case "cyan":
+		return "\033[36m"
+	case "white":
+		return "\033[37m"
+	case "gray", "grey":
+		return "\033[90m"
+	case "none", "off":
+		return ""
+	}
+	// If already contains escape sequence
+	if strings.Contains(c, "\033") || strings.Contains(c, "\\033") {
+		return strings.ReplaceAll(c, "\\033", "\033")
+	}
+	// Just a number - wrap in ANSI
+	if _, err := strconv.Atoi(c); err == nil {
+		return fmt.Sprintf("\033[%sm", c)
+	}
+	return c
+}
 
 // SetSourceWidth sets the fixed width for source location display
 func SetSourceWidth(width int) {
@@ -28,6 +120,30 @@ func SetSourceWidth(width int) {
 		sourceWidth = width
 	}
 }
+
+// SetColorTrace sets the color for TRACE level
+func SetColorTrace(color string) { colorTrace = parseColor(color) }
+
+// SetColorDebug sets the color for DEBUG level
+func SetColorDebug(color string) { colorDebug = parseColor(color) }
+
+// SetColorInfo sets the color for INFO level
+func SetColorInfo(color string) { colorInfo = parseColor(color) }
+
+// SetColorWarn sets the color for WARN level
+func SetColorWarn(color string) { colorWarn = parseColor(color) }
+
+// SetColorError sets the color for ERROR level
+func SetColorError(color string) { colorError = parseColor(color) }
+
+// SetColorSource sets the color for source location
+func SetColorSource(color string) { colorSource = parseColor(color) }
+
+// DisableColors disables all color output
+func DisableColors() { colorsDisabled = true }
+
+// EnableColors enables color output
+func EnableColors() { colorsDisabled = false }
 
 // ColoredHandler implements slog.Handler with colored level output
 type ColoredHandler struct {
@@ -39,6 +155,7 @@ type ColoredHandler struct {
 
 // NewColoredHandler creates a new colored handler
 func NewColoredHandler(w io.Writer, level *slog.LevelVar) *ColoredHandler {
+	initConfig() // Read config from env on first handler creation
 	return &ColoredHandler{
 		level:  level,
 		writer: w,
@@ -50,7 +167,7 @@ func (h *ColoredHandler) Enabled(_ context.Context, l slog.Level) bool {
 }
 
 func (h *ColoredHandler) Handle(_ context.Context, r slog.Record) error {
-	// Format: [2025/12/26 15:04:05] LEVEL [main.go:42 ] message key=value...
+	// Format: [2025/12/26 15:04:05] LEVEL [source_location] message key=value...
 	timeStr := r.Time.Format("2006/01/02 15:04:05")
 	levelStr := h.formatLevel(r.Level)
 
@@ -72,7 +189,11 @@ func (h *ColoredHandler) Handle(_ context.Context, r slog.Record) error {
 			} else {
 				loc = fmt.Sprintf("%-*s", sourceWidth, loc)
 			}
-			source = fmt.Sprintf("%s[%s]%s", colorGreen, loc, colorReset)
+			if !colorsDisabled && colorSource != "" {
+				source = fmt.Sprintf("%s[%s]%s", colorSource, loc, colorReset)
+			} else {
+				source = fmt.Sprintf("[%s]", loc)
+			}
 		}
 	}
 
@@ -103,31 +224,31 @@ func (h *ColoredHandler) formatLevel(l slog.Level) string {
 	switch {
 	case l <= LevelTrace:
 		name = "TRACE"
-		color = colorLightGray
+		color = colorTrace
 	case l <= LevelDebug:
 		name = "DEBUG"
-		color = colorGray
+		color = colorDebug
 	case l <= LevelInfo:
 		name = "INFO"
-		color = ""
+		color = colorInfo
 	case l <= LevelWarn:
 		name = "WARN"
-		color = colorYellow
+		color = colorWarn
 	case l <= LevelError:
 		name = "ERROR"
-		color = colorRed
+		color = colorError
 	case l <= LevelFatal:
 		name = "FATAL"
-		color = colorRed
+		color = colorError
 	default:
 		name = "PANIC"
-		color = colorRed
+		color = colorError
 	}
 
 	// Fixed width: 5 characters
 	paddedName := fmt.Sprintf("%-5s", name)
 
-	if color == "" {
+	if colorsDisabled || color == "" {
 		return paddedName
 	}
 	return fmt.Sprintf("%s%s%s", color, paddedName, colorReset)
