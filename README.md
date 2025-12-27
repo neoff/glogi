@@ -59,11 +59,11 @@ LOG_LEVEL=INFO ./myapp
 ## Output Example
 
 ```
-2025/12/26 16:00:00 [TRACE] trace message key=value
-2025/12/26 16:00:00 [DEBUG] debug info user_id=123
-2025/12/26 16:00:00 [INFO] server started port=8080
-2025/12/26 16:00:00 [WARN] slow query duration=500ms
-2025/12/26 16:00:00 [ERROR] connection failed err=timeout
+2025/12/26 16:00:00 main.go:16: [TRACE] trace message key=value
+2025/12/26 16:00:00 main.go:17: [DEBUG] debug info user_id=123
+2025/12/26 16:00:00 main.go:18: [INFO] server started port=8080
+2025/12/26 16:00:00 main.go:19: [WARN] slow query duration=500ms
+2025/12/26 16:00:00 main.go:20: [ERROR] connection failed err=timeout
 ```
 
 ## License
