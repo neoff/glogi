@@ -15,8 +15,7 @@ import (
 const (
 	defaultColorReset     = "\033[0m"
 	defaultColorDarkGray  = "\033[90m" // TRACE - dark gray
-	defaultColorCyan      = "\033[36m" // DEBUG - cyan (distinguishable from white INFO)
-	defaultColorLightGray = "\033[37m" // Old DEBUG
+	defaultColorLightGray = "\033[37m" // DEBUG - light gray
 	defaultColorYellow    = "\033[33m" // WARN
 	defaultColorRed       = "\033[31m" // ERROR, FATAL, PANIC
 	defaultColorGreen     = "\033[32m" // Source location
@@ -27,7 +26,7 @@ var (
 	sourceWidth    = 20 // Default source width, configurable via LOG_SOURCE_WIDTH
 	colorReset     = defaultColorReset
 	colorTrace     = defaultColorDarkGray
-	colorDebug     = defaultColorCyan
+	colorDebug     = defaultColorLightGray
 	colorInfo      = "" // No color for INFO
 	colorWarn      = defaultColorYellow
 	colorError     = defaultColorRed
@@ -212,8 +211,9 @@ func (h *ColoredHandler) Handle(_ context.Context, r slog.Record) error {
 		msgContent += fmt.Sprintf(" %s=%v", a.Key, a.Value.Any())
 	}
 
-	// Apply level color to message content
-	if !colorsDisabled && levelColor != "" {
+	// Apply level color to message content ONLY for TRACE level
+	// For other levels, message remains default color (only level label is colored)
+	if !colorsDisabled && levelColor != "" && r.Level == LevelTrace {
 		msgContent = fmt.Sprintf("%s%s%s", levelColor, msgContent, colorReset)
 	}
 
