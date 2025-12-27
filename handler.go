@@ -14,8 +14,9 @@ import (
 // Default ANSI color codes
 const (
 	defaultColorReset     = "\033[0m"
-	defaultColorDarkGray  = "\033[90m" // TRACE - dark gray
-	defaultColorLightGray = "\033[37m" // DEBUG - light gray
+	defaultColorDarkGray  = "\033[90m" // TRACE & DEBUG - gray
+	defaultColorCyan      = "\033[36m" // unused
+	defaultColorLightGray = "\033[37m" // unused
 	defaultColorYellow    = "\033[33m" // WARN
 	defaultColorRed       = "\033[31m" // ERROR, FATAL, PANIC
 	defaultColorGreen     = "\033[32m" // Source location
@@ -26,7 +27,7 @@ var (
 	sourceWidth    = 20 // Default source width, configurable via LOG_SOURCE_WIDTH
 	colorReset     = defaultColorReset
 	colorTrace     = defaultColorDarkGray
-	colorDebug     = defaultColorLightGray
+	colorDebug     = defaultColorDarkGray
 	colorInfo      = "" // No color for INFO
 	colorWarn      = defaultColorYellow
 	colorError     = defaultColorRed
