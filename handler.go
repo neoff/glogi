@@ -14,8 +14,8 @@ import (
 // Default ANSI color codes
 const (
 	defaultColorReset     = "\033[0m"
-	defaultColorLightGray = "\033[37m" // TRACE
-	defaultColorGray      = "\033[90m" // DEBUG
+	defaultColorDarkGray  = "\033[90m" // TRACE - dark gray
+	defaultColorLightGray = "\033[37m" // DEBUG - light gray
 	defaultColorYellow    = "\033[33m" // WARN
 	defaultColorRed       = "\033[31m" // ERROR, FATAL, PANIC
 	defaultColorGreen     = "\033[32m" // Source location
@@ -25,8 +25,8 @@ const (
 var (
 	sourceWidth    = 20 // Default source width, configurable via LOG_SOURCE_WIDTH
 	colorReset     = defaultColorReset
-	colorTrace     = defaultColorLightGray
-	colorDebug     = defaultColorGray
+	colorTrace     = defaultColorDarkGray
+	colorDebug     = defaultColorLightGray
 	colorInfo      = "" // No color for INFO
 	colorWarn      = defaultColorYellow
 	colorError     = defaultColorRed
@@ -169,7 +169,7 @@ func (h *ColoredHandler) Enabled(_ context.Context, l slog.Level) bool {
 func (h *ColoredHandler) Handle(_ context.Context, r slog.Record) error {
 	// Format: [2025/12/26 15:04:05] LEVEL [source_location] message key=value...
 	timeStr := r.Time.Format("2006/01/02 15:04:05")
-	levelStr := h.formatLevel(r.Level)
+	levelStr, levelColor := h.formatLevelWithColor(r.Level)
 
 	// Get source location from PC
 	source := ""
@@ -197,27 +197,33 @@ func (h *ColoredHandler) Handle(_ context.Context, r slog.Record) error {
 		}
 	}
 
-	// Build message: [time] LEVEL [source] message
-	msg := fmt.Sprintf("[%s] %s %s %s", timeStr, levelStr, source, r.Message)
+	// Build message content (will be colorized)
+	msgContent := r.Message
 
 	// Add attributes
 	r.Attrs(func(a slog.Attr) bool {
-		msg += fmt.Sprintf(" %s=%v", a.Key, a.Value.Any())
+		msgContent += fmt.Sprintf(" %s=%v", a.Key, a.Value.Any())
 		return true
 	})
 
 	// Add handler-level attrs
 	for _, a := range h.attrs {
-		msg += fmt.Sprintf(" %s=%v", a.Key, a.Value.Any())
+		msgContent += fmt.Sprintf(" %s=%v", a.Key, a.Value.Any())
 	}
 
-	msg += "\n"
+	// Apply level color to message content
+	if !colorsDisabled && levelColor != "" {
+		msgContent = fmt.Sprintf("%s%s%s", levelColor, msgContent, colorReset)
+	}
+
+	// Build final message: [time] LEVEL [source] message
+	msg := fmt.Sprintf("[%s] %s %s %s\n", timeStr, levelStr, source, msgContent)
 
 	_, err := h.writer.Write([]byte(msg))
 	return err
 }
 
-func (h *ColoredHandler) formatLevel(l slog.Level) string {
+func (h *ColoredHandler) formatLevelWithColor(l slog.Level) (string, string) {
 	var name string
 	var color string
 
@@ -249,9 +255,9 @@ func (h *ColoredHandler) formatLevel(l slog.Level) string {
 	paddedName := fmt.Sprintf("%-5s", name)
 
 	if colorsDisabled || color == "" {
-		return paddedName
+		return paddedName, ""
 	}
-	return fmt.Sprintf("%s%s%s", color, paddedName, colorReset)
+	return fmt.Sprintf("%s%s%s", color, paddedName, colorReset), color
 }
 
 func (h *ColoredHandler) WithAttrs(attrs []slog.Attr) slog.Handler {

@@ -1,4 +1,4 @@
-# glogi
+# glögi
 
 Structured logging library for Go with colored output and level-based filtering.
 Drop-in replacement for standard `log` package.
