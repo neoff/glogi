@@ -156,12 +156,6 @@ func Fatal(msg string, args ...any) {
 	os.Exit(1)
 }
 
-// Fatalf logs at FATAL level with formatting and calls os.Exit(1)
-func Fatalf(format string, args ...any) {
-	logWithCaller(LevelFatal, fmt.Sprintf(format, args...))
-	os.Exit(1)
-}
-
 // PanicLog logs at PANIC level (red) and panics
 func PanicLog(msg string, args ...any) {
 	logWithCaller(LevelPanic, msg, args...)
