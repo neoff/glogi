@@ -105,9 +105,19 @@ func Trace(msg string, args ...any) {
 	logWithCaller(LevelTrace, msg, args...)
 }
 
+// Tracef logs at TRACE level with formatting
+func Tracef(format string, args ...any) {
+	logWithCaller(LevelTrace, fmt.Sprintf(format, args...))
+}
+
 // Debug logs at DEBUG level (gray)
 func Debug(msg string, args ...any) {
 	logWithCaller(LevelDebug, msg, args...)
+}
+
+// Debugf logs at DEBUG level with formatting
+func Debugf(format string, args ...any) {
+	logWithCaller(LevelDebug, fmt.Sprintf(format, args...))
 }
 
 // Info logs at INFO level (no color)
@@ -115,14 +125,29 @@ func Info(msg string, args ...any) {
 	logWithCaller(LevelInfo, msg, args...)
 }
 
+// Infof logs at INFO level with formatting
+func Infof(format string, args ...any) {
+	logWithCaller(LevelInfo, fmt.Sprintf(format, args...))
+}
+
 // Warn logs at WARN level (yellow)
 func Warn(msg string, args ...any) {
 	logWithCaller(LevelWarn, msg, args...)
 }
 
+// Warnf logs at WARN level with formatting
+func Warnf(format string, args ...any) {
+	logWithCaller(LevelWarn, fmt.Sprintf(format, args...))
+}
+
 // Error logs at ERROR level (red)
 func Error(msg string, args ...any) {
 	logWithCaller(LevelError, msg, args...)
+}
+
+// Errorf logs at ERROR level with formatting
+func Errorf(format string, args ...any) {
+	logWithCaller(LevelError, fmt.Sprintf(format, args...))
 }
 
 // Fatal logs at FATAL level (red) and calls os.Exit(1)
@@ -131,9 +156,22 @@ func Fatal(msg string, args ...any) {
 	os.Exit(1)
 }
 
+// Fatalf logs at FATAL level with formatting and calls os.Exit(1)
+func Fatalf(format string, args ...any) {
+	logWithCaller(LevelFatal, fmt.Sprintf(format, args...))
+	os.Exit(1)
+}
+
 // PanicLog logs at PANIC level (red) and panics
 func PanicLog(msg string, args ...any) {
 	logWithCaller(LevelPanic, msg, args...)
+	panic(msg)
+}
+
+// PanicLogf logs at PANIC level with formatting and panics
+func PanicLogf(format string, args ...any) {
+	msg := fmt.Sprintf(format, args...)
+	logWithCaller(LevelPanic, msg)
 	panic(msg)
 }
 
